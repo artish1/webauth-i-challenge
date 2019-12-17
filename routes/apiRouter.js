@@ -37,6 +37,8 @@ router.post("/login", (req, res) => {
       .first()
       .then(user => {
         if (user && bcrypt.compareSync(password, user.password)) {
+          user.password = null;
+          req.session.user = user;
           res.status(200).json({ message: "Logged in" });
         } else {
           res.status(401).json({ message: "You shall not pass!" });
@@ -48,6 +50,20 @@ router.post("/login", (req, res) => {
           .status(500)
           .json({ message: "error finding user by username", err });
       });
+  }
+});
+
+router.get("/logout", (req, res) => {
+  if (req.session) {
+    req.session.destroy(err => {
+      if (err) {
+        res.json({ message: "Could not log you out" });
+      } else {
+        res.status(200).json({ message: "Logged out!" });
+      }
+    });
+  } else {
+    res.status(200).json({ message: "You were never logged in..." });
   }
 });
 
@@ -63,22 +79,8 @@ router.get("/users", restricted, (req, res) => {
 });
 
 function restricted(req, res, next) {
-  const { username, password } = req.headers;
-  if (username && password) {
-    Users.findBy({ username })
-      .first()
-      .then(user => {
-        if (user && bcrypt.compareSync(password, user.password)) {
-          req.user = user;
-          next();
-        } else {
-          res.status(401).json({ message: "Invalid Credentials" });
-        }
-      })
-      .catch(error => {
-        console.log(error);
-        res.status(500).json({ message: "Unexpected error" });
-      });
+  if (req.session && req.session.user) {
+    next();
   } else {
     res.status(400).json({ message: "No credentials provided" });
   }
